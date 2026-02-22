@@ -3,6 +3,15 @@ import {
     getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+// --- 1. REGISTER SERVICE WORKER (Crucial for PWA installation) ---
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('Service Worker Registered!', reg))
+            .catch(err => console.error('Service Worker Registration Failed', err));
+    });
+}
+
 const firebaseConfig = {
   apiKey: "AIzaSyCbnDtx47cXLFYmHtN_rG1McLWItIS_Vrk",
   authDomain: "cambrils-calendar.firebaseapp.com",
@@ -26,7 +35,7 @@ const FAMILY_COLORS = {
     "Erica": "#FF6B6B",     
 };
 
-// --- NEW MODAL SYSTEM ---
+// --- MODAL SYSTEM ---
 const Modal = {
     overlay: document.getElementById('systemModal'),
     title: document.getElementById('sysModalTitle'),
@@ -37,12 +46,10 @@ const Modal = {
 
     show(type, titleText, messageText, confirmText = "OK", isDanger = false) {
         return new Promise((resolve) => {
-            // 1. Setup Content
             this.title.innerText = titleText;
             this.message.innerText = messageText;
             this.confirmBtn.innerText = confirmText;
             
-            // 2. Setup Type (Password vs Alert)
             if (type === 'password') {
                 this.input.style.display = 'block';
                 this.input.value = '';
@@ -51,7 +58,6 @@ const Modal = {
                 this.input.style.display = 'none';
             }
 
-            // 3. Setup Style (Danger vs Normal)
             if (isDanger) {
                 this.confirmBtn.classList.add('btn-danger');
                 this.confirmBtn.classList.remove('btn-confirm');
@@ -60,7 +66,6 @@ const Modal = {
                 this.confirmBtn.classList.remove('btn-danger');
             }
 
-            // 4. Handle Buttons
             const handleConfirm = () => {
                 cleanup();
                 if (type === 'password') resolve(this.input.value);
@@ -80,16 +85,49 @@ const Modal = {
 
             this.confirmBtn.onclick = handleConfirm;
             this.cancelBtn.onclick = handleCancel;
-
-            // 5. Show
             this.overlay.style.display = 'flex';
         });
     }
 };
 
+// --- 2. PWA INSTALL LOGIC ---
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    // If they are already logged in and haven't been prompted, show it
+    if (localStorage.getItem("house_auth") === "true" && localStorage.getItem("pwa_prompted") !== "true") {
+        showInstallPrompt();
+    }
+});
+
+async function showInstallPrompt() {
+    // Check if running as an app already
+    if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true) return;
+    // Check if we already asked them
+    if (localStorage.getItem("pwa_prompted") === "true") return;
+
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    if (isIOS) {
+        // Apple does not allow automatic install buttons, so we give instructions
+        await Modal.show('confirm', 'Install App 📱', 'To add this calendar to your home screen:\n\n1. Tap the Share icon at the bottom of Safari.\n2. Tap "Add to Home Screen".', 'Got it!');
+        localStorage.setItem("pwa_prompted", "true");
+    } else if (deferredPrompt) {
+        // Android / Chrome allows us to trigger the native install
+        const wantInstall = await Modal.show('confirm', 'Install App 📱', 'Would you like to add this calendar to your Home Screen for quick access?', 'Yes, Install');
+        if (wantInstall) {
+            deferredPrompt.prompt();
+            await deferredPrompt.userChoice;
+            deferredPrompt = null;
+        }
+        localStorage.setItem("pwa_prompted", "true");
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
     
-    // 1. GATEKEEPER (Now using Custom Modal)
+    // GATEKEEPER
     let authenticated = localStorage.getItem("house_auth");
     
     if (authenticated !== "true") {
@@ -97,6 +135,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         if (entry === FAMILY_PASSCODE) { 
             localStorage.setItem("house_auth", "true"); 
+            // Successfully logged in! Wait 1.5 seconds, then ask to install.
+            setTimeout(showInstallPrompt, 1500); 
         } else { 
             document.body.innerHTML = `
                 <div style="display:flex; justify-content:center; align-items:center; height:100vh; background:#f0f4f8; flex-direction:column;">
@@ -105,10 +145,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                 </div>`; 
             return; 
         }
+    } else {
+        // Already logged in from a previous session, but maybe they never installed it
+        setTimeout(showInstallPrompt, 1500);
     }
 
     const calendarEl = document.getElementById('calendar');
-    const nameModal = document.getElementById('nameModal'); // Existing Name Picker
+    const nameModal = document.getElementById('nameModal'); 
     const familySelect = document.getElementById('familySelect');
     const confirmBtn = document.getElementById('confirmBtn');
     const cancelBtn = document.getElementById('cancelBtn');
@@ -139,13 +182,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             });
 
             if (overlapFound) {
-                // REPLACED standard confirm with Modal
                 const proceed = await Modal.show(
                     'confirm', 
                     'Double Booking!', 
                     `This overlaps with ${overlappingName}. Do you want to proceed anyway?`, 
                     'Book Anyway', 
-                    true // shows red/danger button
+                    true
                 );
                 
                 if (!proceed) {
@@ -159,7 +201,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         },
 
         eventClick: async function(info) {
-            // REPLACED standard confirm with Modal
             const confirmDelete = await Modal.show(
                 'confirm', 
                 'Delete Booking?', 
@@ -181,7 +222,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     calendar.render();
 
-    // CUSTOM TODAY BUTTON LOGIC
     const todayBtn = document.getElementById('customTodayBtn');
     if (todayBtn) {
         todayBtn.addEventListener('click', () => {
