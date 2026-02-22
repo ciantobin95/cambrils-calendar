@@ -3,6 +3,7 @@ import {
     getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+// 1. Firebase Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCbnDtx47cXLFYmHtN_rG1McLWItIS_Vrk",
   authDomain: "cambrils-calendar.firebaseapp.com",
@@ -20,22 +21,22 @@ const bookingsRef = collection(db, "bookings");
 const FAMILY_PASSCODE = "Becky"; 
 
 const FAMILY_COLORS = {
-    "Mum & Dad": "#FFD700", // Yellow
-    "Cian": "#2196f3",      // Blue
-    "Mark": "#008000",      // Green
-    "Erica": "#FF69B4",     // Pink
+    "Mum & Dad": "#FFD93D", // Sun-yellow
+    "Cian": "#6BCBFF",      // Sky-blue
+    "Mark": "#4D96FF",      // Royal-blue
+    "Erica": "#FF6B6B",     // Soft coral-red
 };
 
 document.addEventListener('DOMContentLoaded', function() {
     
-    // 1. GATEKEEPER
+    // 2. GATEKEEPER
     let authenticated = localStorage.getItem("house_auth");
     if (authenticated !== "true") {
         const entry = prompt("Please enter the Family Passcode:");
         if (entry === FAMILY_PASSCODE) { 
             localStorage.setItem("house_auth", "true"); 
         } else { 
-            document.body.innerHTML = `<h2 style="text-align:center; margin-top:100px;">Access Denied</h2>`; 
+            document.body.innerHTML = `<h2 style="text-align:center; margin-top:100px; font-family:sans-serif;">Access Denied</h2>`; 
             return; 
         }
     }
@@ -49,12 +50,22 @@ document.addEventListener('DOMContentLoaded', function() {
     let pendingSelection = null;
 
     const calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth',
+        // --- SEAMLESS SCROLL SETTINGS ---
+        initialView: 'multiMonthYear',
+        multiMonthMaxColumns: 1, 
+        showNonCurrentDates: false,
+        // --------------------------------
+
         selectable: true,
-        editable: false, // Dragging is disabled
+        editable: false, 
         selectLongPressDelay: 200, 
         longPressDelay: 200,
-        headerToolbar: { left: 'prev,next', center: 'title', right: 'today' },
+
+        headerToolbar: {
+            left: '',
+            center: 'title',
+            right: 'today'
+        },
         
         select: function(info) {
             const existingEvents = calendar.getEvents();
@@ -78,22 +89,17 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.style.display = 'flex';
         },
 
-        // --- SIMPLIFIED DELETE-ONLY LOGIC ---
         eventClick: async function(info) {
-            // First ask if they want to delete it
             const confirmDelete = confirm(`Would you like to delete the booking for "${info.event.title}"?`);
-            
             if (confirmDelete) {
                 const eventRef = doc(db, "bookings", info.event.id);
                 try {
                     await deleteDoc(eventRef);
-                    console.log("Deleted booking:", info.event.id);
                 } catch (e) {
                     console.error("Error deleting:", e);
                 }
             }
         }
-        // ------------------------------------
     });
 
     calendar.render();
