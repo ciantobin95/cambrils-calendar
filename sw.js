@@ -1,4 +1,4 @@
-const CACHE_NAME = 'house-cal-v3';
+const CACHE_NAME = 'house-cal-v4'; // Bumped to v4
 const assets = [
   './',
   './index.html',
@@ -9,16 +9,27 @@ const assets = [
   './icon-512.png'
 ];
 
-// Install service worker and cache core assets
 self.addEventListener('install', evt => {
+  // Forces the waiting service worker to become the active service worker
+  self.skipWaiting(); 
   evt.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      cache.addAll(assets);
+      return cache.addAll(assets);
     })
   );
 });
 
-// Fetch events to load from cache if offline
+self.addEventListener('activate', evt => {
+  // Clean up old caches
+  evt.waitUntil(
+    caches.keys().then(keys => {
+      return Promise.all(
+        keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
+      );
+    })
+  );
+});
+
 self.addEventListener('fetch', evt => {
   evt.respondWith(
     caches.match(evt.request).then(cacheRes => {
