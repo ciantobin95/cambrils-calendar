@@ -37,3 +37,21 @@ header {
 }
 
 /* Custom Modal/Prompt styling (Optional, using browser prompts for now for simplicity) */
+
+/* Make the date selection highlight much darker (Deep Green) */
+.fc .fc-highlight {
+    background: rgba(46, 125, 50, 0.5) !important; /* Semi-transparent version of your green */
+}
+
+/* Make "Today" stand out with a subtle border instead of just a light tint */
+.fc .fc-day-today {
+    background: rgba(76, 175, 80, 0.1) !important;
+    border: 2px solid #2e7d32 !important;
+}
+
+/* Optional: Make the day numbers slightly larger for easier reading on small screens */
+.fc-daygrid-day-number {
+    font-size: 1.1em;
+    font-weight: bold;
+    padding: 5px !important;
+}

@@ -25,11 +25,18 @@ document.addEventListener('DOMContentLoaded', function() {
         initialView: 'dayGridMonth',
         selectable: true,
         editable: true,
+        
+        // --- MOBILE TOUCH FIXES ---
+        selectLongPressDelay: 200, 
+        longPressDelay: 200,
+        // --------------------------
+
         headerToolbar: {
             left: 'prev,next',
             center: 'title',
             right: 'today'
         },
+        // ... rest of your code stays the same
         
         // 2. CREATE: Save new booking
         select: async function(info) {
