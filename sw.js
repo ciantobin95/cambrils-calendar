@@ -1,4 +1,4 @@
-const CACHE_NAME = 'house-cal-v4'; // Bumped to v4
+const CACHE_NAME = 'house-cal-v5'; 
 const assets = [
   './',
   './index.html',
