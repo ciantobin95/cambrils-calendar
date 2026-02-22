@@ -26,21 +26,89 @@ const FAMILY_COLORS = {
     "Erica": "#FF6B6B",     
 };
 
-document.addEventListener('DOMContentLoaded', function() {
+// --- NEW MODAL SYSTEM ---
+const Modal = {
+    overlay: document.getElementById('systemModal'),
+    title: document.getElementById('sysModalTitle'),
+    message: document.getElementById('sysModalMessage'),
+    input: document.getElementById('sysInput'),
+    confirmBtn: document.getElementById('sysConfirmBtn'),
+    cancelBtn: document.getElementById('sysCancelBtn'),
+
+    show(type, titleText, messageText, confirmText = "OK", isDanger = false) {
+        return new Promise((resolve) => {
+            // 1. Setup Content
+            this.title.innerText = titleText;
+            this.message.innerText = messageText;
+            this.confirmBtn.innerText = confirmText;
+            
+            // 2. Setup Type (Password vs Alert)
+            if (type === 'password') {
+                this.input.style.display = 'block';
+                this.input.value = '';
+                this.input.focus();
+            } else {
+                this.input.style.display = 'none';
+            }
+
+            // 3. Setup Style (Danger vs Normal)
+            if (isDanger) {
+                this.confirmBtn.classList.add('btn-danger');
+                this.confirmBtn.classList.remove('btn-confirm');
+            } else {
+                this.confirmBtn.classList.add('btn-confirm');
+                this.confirmBtn.classList.remove('btn-danger');
+            }
+
+            // 4. Handle Buttons
+            const handleConfirm = () => {
+                cleanup();
+                if (type === 'password') resolve(this.input.value);
+                else resolve(true);
+            };
+
+            const handleCancel = () => {
+                cleanup();
+                resolve(false);
+            };
+
+            const cleanup = () => {
+                this.overlay.style.display = 'none';
+                this.confirmBtn.onclick = null;
+                this.cancelBtn.onclick = null;
+            };
+
+            this.confirmBtn.onclick = handleConfirm;
+            this.cancelBtn.onclick = handleCancel;
+
+            // 5. Show
+            this.overlay.style.display = 'flex';
+        });
+    }
+};
+
+document.addEventListener('DOMContentLoaded', async function() {
     
+    // 1. GATEKEEPER (Now using Custom Modal)
     let authenticated = localStorage.getItem("house_auth");
+    
     if (authenticated !== "true") {
-        const entry = prompt("Please enter the Family Passcode:");
+        const entry = await Modal.show('password', 'Welcome Home', 'Please enter the Family Passcode:', 'Unlock');
+        
         if (entry === FAMILY_PASSCODE) { 
             localStorage.setItem("house_auth", "true"); 
         } else { 
-            document.body.innerHTML = `<h2 style="text-align:center; margin-top:100px; font-family:sans-serif;">Access Denied</h2>`; 
+            document.body.innerHTML = `
+                <div style="display:flex; justify-content:center; align-items:center; height:100vh; background:#f0f4f8; flex-direction:column;">
+                    <h2 style="font-family:'Inter'; color:#c62828;">Access Denied</h2>
+                    <button onclick="location.reload()" style="padding:10px 20px; margin-top:20px; border-radius:10px; border:none; background:#ccc; font-size:16px;">Try Again</button>
+                </div>`; 
             return; 
         }
     }
 
     const calendarEl = document.getElementById('calendar');
-    const modal = document.getElementById('nameModal');
+    const nameModal = document.getElementById('nameModal'); // Existing Name Picker
     const familySelect = document.getElementById('familySelect');
     const confirmBtn = document.getElementById('confirmBtn');
     const cancelBtn = document.getElementById('cancelBtn');
@@ -51,18 +119,15 @@ document.addEventListener('DOMContentLoaded', function() {
         initialView: 'multiMonthYear',
         multiMonthMaxColumns: 1, 
         showNonCurrentDates: false,
-        
-        // --- THE FIXES ---
-        height: 'auto',         // Fixes the squished layout 
-        headerToolbar: false,   // Removes the giant sticky "2026" and greyed out button
-        // -----------------
+        height: 'auto',         
+        headerToolbar: false,   
 
         selectable: true,
         editable: false, 
         selectLongPressDelay: 200, 
         longPressDelay: 200,
         
-        select: function(info) {
+        select: async function(info) {
             const existingEvents = calendar.getEvents();
             let overlapFound = false;
             let overlappingName = "";
@@ -74,18 +139,35 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             if (overlapFound) {
-                if (!confirm(`CONFLICT: Overlaps with "${overlappingName}". Proceed anyway?`)) {
+                // REPLACED standard confirm with Modal
+                const proceed = await Modal.show(
+                    'confirm', 
+                    'Double Booking!', 
+                    `This overlaps with ${overlappingName}. Do you want to proceed anyway?`, 
+                    'Book Anyway', 
+                    true // shows red/danger button
+                );
+                
+                if (!proceed) {
                     calendar.unselect();
                     return;
                 }
             }
 
             pendingSelection = info;
-            modal.style.display = 'flex';
+            nameModal.style.display = 'flex';
         },
 
         eventClick: async function(info) {
-            const confirmDelete = confirm(`Would you like to delete the booking for "${info.event.title}"?`);
+            // REPLACED standard confirm with Modal
+            const confirmDelete = await Modal.show(
+                'confirm', 
+                'Delete Booking?', 
+                `Are you sure you want to delete the booking for "${info.event.title}"?`, 
+                'Yes, Delete', 
+                true
+            );
+
             if (confirmDelete) {
                 const eventRef = doc(db, "bookings", info.event.id);
                 try {
@@ -105,7 +187,6 @@ document.addEventListener('DOMContentLoaded', function() {
         todayBtn.addEventListener('click', () => {
             const todayElement = document.querySelector('.fc-day-today');
             if (todayElement) {
-                // Smoothly scroll the today square into the center of the screen
                 todayElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         });
@@ -115,7 +196,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!pendingSelection) return;
         const selectedName = familySelect.value;
         const color = FAMILY_COLORS[selectedName] || "#2e7d32";
-        modal.style.display = 'none';
+        nameModal.style.display = 'none';
         try {
             await addDoc(bookingsRef, {
                 title: selectedName,
@@ -129,7 +210,7 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     cancelBtn.onclick = () => {
-        modal.style.display = 'none';
+        nameModal.style.display = 'none';
         pendingSelection = null;
         calendar.unselect();
     };

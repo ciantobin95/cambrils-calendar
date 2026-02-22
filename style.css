@@ -33,7 +33,100 @@ header h1 {
     font-size: 2rem;
 }
 
-/* Custom Today Button */
+/* --- SHARED MODAL STYLES --- */
+.modal-overlay {
+    position: fixed; 
+    z-index: 9999; 
+    left: 0; 
+    top: 0; 
+    width: 100%; 
+    height: 100%; 
+    background: rgba(0,0,0,0.5); 
+    display: flex; 
+    justify-content: center; 
+    align-items: center;
+    backdrop-filter: blur(5px); /* Strong blur for premium feel */
+}
+
+.modal-content {
+    background: white; 
+    padding: 30px; 
+    border-radius: 24px; 
+    text-align: center; 
+    width: 85%; 
+    max-width: 320px; 
+    box-shadow: 0 20px 50px rgba(0,0,0,0.2); 
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.modal-input {
+    width: 100%; 
+    padding: 15px; 
+    margin-bottom: 25px; 
+    font-size: 16px; 
+    border-radius: 12px; 
+    border: 1px solid #e0e6ed; 
+    background: #f8f9fa;
+    box-sizing: border-box; /* Fixes padding issues */
+    outline: none;
+    transition: border 0.2s;
+}
+
+.modal-input:focus {
+    border-color: #2e7d32;
+    background: white;
+}
+
+.modal-actions {
+    display: flex; 
+    gap: 12px;
+}
+
+.btn-cancel {
+    flex: 1; 
+    padding: 14px; 
+    background: #f1f3f5; 
+    color: #495057;
+    border: none; 
+    border-radius: 12px; 
+    cursor: pointer; 
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.btn-confirm {
+    flex: 1; 
+    padding: 14px; 
+    background: var(--primary-gradient); 
+    color: white; 
+    border: none; 
+    border-radius: 12px; 
+    cursor: pointer; 
+    font-weight: bold; 
+    font-family: 'Inter', sans-serif;
+    font-size: 1rem;
+    box-shadow: 0 4px 12px rgba(46, 125, 50, 0.2);
+}
+
+/* Button Variants */
+.btn-danger {
+    background: linear-gradient(135deg, #ef5350 0%, #c62828 100%) !important;
+    color: white !important; /* <-- THIS IS THE ONLY ADDED LINE */
+    box-shadow: 0 4px 12px rgba(198, 40, 40, 0.3) !important;
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #ffca28 0%, #ff6f00 100%) !important;
+    color: #fff !important;
+}
+
+/* --- CALENDAR STYLES --- */
 .today-btn {
     background: rgba(255, 255, 255, 0.2);
     color: white;
@@ -59,7 +152,6 @@ header h1 {
     background: transparent;
 }
 
-/* Vertical Month Card Styling */
 .fc-multimonth-month {
     padding: 15px !important;
     background: var(--glass-bg) !important;
@@ -81,7 +173,6 @@ header h1 {
     padding: 10px 0 10px 5px !important;
 }
 
-/* Modern Event Bars */
 .fc-v-event, .fc-h-event {
     border-radius: 20px !important;
     padding: 4px 10px !important;
@@ -90,7 +181,6 @@ header h1 {
     box-shadow: 0 4px 6px rgba(0,0,0,0.08);
 }
 
-/* Today Highlight Box */
 .fc .fc-day-today {
     background: rgba(46, 125, 50, 0.1) !important;
     border-radius: 8px;
