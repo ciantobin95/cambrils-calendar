@@ -16,7 +16,6 @@ body {
 }
 
 header {
-    /* Replaced flat gradient with Image + Tint Overlay */
     background: linear-gradient(rgba(46, 125, 50, 0.7), rgba(30, 90, 40, 0.9)), url('cambrils-header.jpg');
     background-size: cover;
     background-position: center;
@@ -125,11 +124,6 @@ header h1 {
     box-shadow: 0 4px 12px rgba(198, 40, 40, 0.3) !important;
 }
 
-.btn-warning {
-    background: linear-gradient(135deg, #ffca28 0%, #ff6f00 100%) !important;
-    color: #fff !important;
-}
-
 /* --- CALENDAR STYLES --- */
 .today-btn {
     background: rgba(255, 255, 255, 0.2);
@@ -189,4 +183,9 @@ header h1 {
     background: rgba(46, 125, 50, 0.1) !important;
     border-radius: 8px;
     border: 2px solid #2e7d32 !important;
+}
+
+/* --- NEW FIX: PREVENT SQUISHED CELLS --- */
+.fc .fc-daygrid-day-frame {
+    min-height: 70px !important; /* Guarantees enough space for the booking bar */
 }

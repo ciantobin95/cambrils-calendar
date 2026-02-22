@@ -3,7 +3,7 @@ import {
     getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// --- 1. REGISTER SERVICE WORKER (Crucial for PWA installation) ---
+// --- 1. REGISTER SERVICE WORKER ---
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
@@ -95,27 +95,22 @@ let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    // If they are already logged in and haven't been prompted, show it
     if (localStorage.getItem("house_auth") === "true" && localStorage.getItem("pwa_prompted") !== "true") {
         showInstallPrompt();
     }
 });
 
 async function showInstallPrompt() {
-    // Check if running as an app already
     if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true) return;
-    // Check if we already asked them
     if (localStorage.getItem("pwa_prompted") === "true") return;
 
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
     if (isIOS) {
-        // Apple does not allow automatic install buttons, so we give instructions
         await Modal.show('confirm', 'Install App 📱', 'To add this calendar to your home screen:\n\n1. Tap the Share icon at the bottom of Safari.\n2. Tap "Add to Home Screen".', 'Got it!');
         localStorage.setItem("pwa_prompted", "true");
     } else if (deferredPrompt) {
-        // Android / Chrome allows us to trigger the native install
-        const wantInstall = await Modal.show('confirm', 'Install App 📱', 'Would you like to install this calendar app?\n\n(Note: If it does not appear on your Home Screen automatically, check your App Drawer!', 'Yes, Install');
+        const wantInstall = await Modal.show('confirm', 'Install App 📱', 'Would you like to install this calendar app?\n\n(Note: If it does not appear on your Home Screen automatically, check your App Drawer!)', 'Yes, Install');
         if (wantInstall) {
             deferredPrompt.prompt();
             await deferredPrompt.userChoice;
@@ -135,7 +130,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         if (entry === FAMILY_PASSCODE) { 
             localStorage.setItem("house_auth", "true"); 
-            // Successfully logged in! Wait 1.5 seconds, then ask to install.
             setTimeout(showInstallPrompt, 1500); 
         } else { 
             document.body.innerHTML = `
@@ -146,7 +140,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             return; 
         }
     } else {
-        // Already logged in from a previous session, but maybe they never installed it
         setTimeout(showInstallPrompt, 1500);
     }
 
@@ -164,6 +157,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         showNonCurrentDates: false,
         height: 'auto',         
         headerToolbar: false,   
+
+        // --- THE BUG FIX ---
+        dayMaxEvents: false, // Prevents "+1 more" and forces the UI to render the colored bar
+        // -------------------
 
         selectable: true,
         editable: false, 
