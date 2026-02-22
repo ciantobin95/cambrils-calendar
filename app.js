@@ -3,7 +3,6 @@ import {
     getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// 1. Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyCbnDtx47cXLFYmHtN_rG1McLWItIS_Vrk",
   authDomain: "cambrils-calendar.firebaseapp.com",
@@ -14,38 +13,33 @@ const firebaseConfig = {
   measurementId: "G-QLMW5KEDPK"
 };
 
-// 2. Initialize
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const bookingsRef = collection(db, "bookings");
 
-// 3. Set Passcode
-const FAMILY_PASSCODE = "Cambrils2024"; 
-
 document.addEventListener('DOMContentLoaded', function() {
     const calendarEl = document.getElementById('calendar');
 
+    // 1. Initialize the calendar with NO events initially
     const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         selectable: true,
         editable: true,
+        
+        // --- MOBILE TOUCH FIXES ---
         selectLongPressDelay: 200, 
         longPressDelay: 200,
+        // --------------------------
+
         headerToolbar: {
             left: 'prev,next',
             center: 'title',
             right: 'today'
         },
+        // ... rest of your code stays the same
         
-        // --- PROTECTED SELECT ---
+        // 2. CREATE: Save new booking
         select: async function(info) {
-            const secret = prompt("Enter the Family Passcode to book:");
-            if (secret !== FAMILY_PASSCODE) {
-                alert("Incorrect passcode!");
-                calendar.unselect();
-                return;
-            }
-
             const name = prompt("Who is booking the house?");
             if (name && name.trim() !== "") {
                 try {
@@ -61,14 +55,8 @@ document.addEventListener('DOMContentLoaded', function() {
             calendar.unselect();
         },
 
-        // --- PROTECTED EDIT/DELETE ---
+        // 3. EDIT/DELETE
         eventClick: async function(info) {
-            const secret = prompt("Enter passcode to edit or delete:");
-            if (secret !== FAMILY_PASSCODE) {
-                alert("Incorrect passcode!");
-                return;
-            }
-
             const action = prompt(`Selected: ${info.event.title}\nType 'delete' to remove or enter a new name to edit:`);
             if (action === null) return; 
 
@@ -80,15 +68,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         },
 
-        // --- PROTECTED DRAG & DROP ---
+        // 4. DRAG & DROP
         eventDrop: async function(info) {
-            const secret = prompt("Enter passcode to move booking:");
-            if (secret !== FAMILY_PASSCODE) {
-                alert("Incorrect passcode!");
-                info.revert(); 
-                return;
-            }
-
             const eventRef = doc(db, "bookings", info.event.id);
             await updateDoc(eventRef, {
                 start: info.event.startStr,
@@ -99,9 +80,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     calendar.render();
 
-    // 4. REAL-TIME SYNC
+    // 5. THE REAL-TIME SYNC ENGINE
+    // This sits outside the calendar config and "pushes" updates to the UI
     onSnapshot(bookingsRef, (snapshot) => {
         const eventArray = [];
+        
         snapshot.forEach((doc) => {
             const data = doc.data();
             eventArray.push({
@@ -114,7 +97,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 borderColor: '#1b5e20'
             });
         });
+
+        // This removes all old events and replaces them with the fresh ones from Firebase
         calendar.removeAllEvents();
         calendar.addEventSource(eventArray);
+        console.log("Calendar UI updated with", eventArray.length, "bookings.");
     });
 });
