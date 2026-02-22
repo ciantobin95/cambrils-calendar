@@ -120,7 +120,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 end: data.end,
                 allDay: true,
                 backgroundColor: data.color || '#2e7d32', // Use saved color or default green
-                borderColor: 'white'
+                borderColor: 'white',
+                textColor: 'white'
             };
         });
         calendar.removeAllEvents();
