@@ -13,6 +13,37 @@ const firebaseConfig = {
   measurementId: "G-QLMW5KEDPK"
 };
 
+// 1. Set your secret family word here
+const FAMILY_PASSCODE = "Becky"; // Change this to whatever you want!
+
+// ... inside your Calendar configuration ...
+
+    select: async function(info) {
+        const secret = prompt("Enter the Family Passcode to book:");
+        
+        if (secret !== FAMILY_PASSCODE) {
+            alert("Incorrect passcode! You cannot add bookings.");
+            calendar.unselect();
+            return;
+        }
+
+        const name = prompt("Who is booking the house?");
+        if (name && name.trim() !== "") {
+            // ... existing addDoc logic ...
+        }
+    },
+
+    eventClick: async function(info) {
+        const secret = prompt("Enter the Family Passcode to edit or delete:");
+        
+        if (secret !== FAMILY_PASSCODE) {
+            alert("Incorrect passcode!");
+            return;
+        }
+        
+        // ... existing edit/delete logic ...
+    }
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const bookingsRef = collection(db, "bookings");
