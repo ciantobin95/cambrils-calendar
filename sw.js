@@ -1,4 +1,4 @@
-const CACHE_NAME = 'house-cal-v24'; 
+const CACHE_NAME = 'house-cal-v26'; 
 const assets = [
   './',
   './index.html',
@@ -6,7 +6,8 @@ const assets = [
   './app.js',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './cambrils-header.jpg' // <-- New image added to offline cache
 ];
 
 self.addEventListener('install', evt => {
