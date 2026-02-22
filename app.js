@@ -24,7 +24,6 @@ const FAMILY_PASSCODE = "Becky";
 document.addEventListener('DOMContentLoaded', function() {
     
     // --- GATEKEEPER START ---
-    // This checks if the phone "remembers" the password
     let authenticated = localStorage.getItem("house_auth");
 
     if (authenticated !== "true") {
@@ -33,13 +32,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (entry === FAMILY_PASSCODE) {
             localStorage.setItem("house_auth", "true");
         } else {
-            // If they fail, we replace the screen with a message and STOP
             document.body.innerHTML = `
                 <div style="text-align:center; margin-top:100px; font-family:sans-serif;">
                     <h2>Access Denied</h2>
                     <p>Incorrect passcode. Refresh to try again.</p>
                 </div>`;
-            return; // This is the 'kill switch' that prevents crashes
+            return; 
         }
     }
     // --- GATEKEEPER END ---
@@ -58,19 +56,45 @@ document.addEventListener('DOMContentLoaded', function() {
             right: 'today'
         },
         
-        // 3. CREATE: Save new booking
+        // 3. CREATE: Save new booking (Reordered Logic)
         select: async function(info) {
-            const name = prompt("Who is booking the house?");
-            if (name && name.trim() !== "") {
-                try {
-                    await addDoc(bookingsRef, {
-                        title: name,
-                        start: info.startStr,
-                        end: info.endStr
-                    });
-                } catch (e) {
-                    console.error("Error adding document: ", e);
+            // --- STEP 1: CONFLICT DETECTOR (Before Name Prompt) ---
+            const existingEvents = calendar.getEvents();
+            let overlapFound = false;
+            let overlappingName = "";
+
+            existingEvents.forEach(event => {
+                if (info.start < event.end && info.end > event.start) {
+                    overlapFound = true;
+                    overlappingName = event.title;
                 }
+            });
+
+            if (overlapFound) {
+                const proceed = confirm(
+                    `CONFLICT: These dates overlap with a booking by "${overlappingName}". \n\nDo you want to proceed anyway?`
+                );
+                if (!proceed) {
+                    calendar.unselect();
+                    return; 
+                }
+            }
+
+            // --- STEP 2: NAME PROMPT (Only if clear or 'proceed anyway') ---
+            const name = prompt("Who is booking the house?");
+            if (!name || name.trim() === "") {
+                calendar.unselect();
+                return;
+            }
+
+            try {
+                await addDoc(bookingsRef, {
+                    title: name,
+                    start: info.startStr,
+                    end: info.endStr
+                });
+            } catch (e) {
+                console.error("Error adding document: ", e);
             }
             calendar.unselect();
         },
