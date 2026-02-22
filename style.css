@@ -18,7 +18,7 @@ body {
 header {
     background: var(--primary-gradient);
     color: white;
-    padding: 2.5rem 1rem;
+    padding: 2.5rem 1rem 2rem 1rem;
     text-align: center;
     border-bottom-left-radius: 40px;
     border-bottom-right-radius: 40px;
@@ -31,6 +31,25 @@ header h1 {
     font-weight: 700;
     letter-spacing: -1px;
     font-size: 2rem;
+}
+
+/* Custom Today Button */
+.today-btn {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    transition: all 0.2s ease;
+}
+
+.today-btn:active {
+    background: rgba(255, 255, 255, 0.4);
+    transform: scale(0.95);
 }
 
 #calendar {
@@ -71,15 +90,9 @@ header h1 {
     box-shadow: 0 4px 6px rgba(0,0,0,0.08);
 }
 
-/* Today Button & Today Highlight */
-.fc .fc-button-primary {
-    background-color: white !important;
-    border-color: #e0e6ed !important;
-    color: #2e7d32 !important;
-    border-radius: 12px !important;
-    font-weight: 600 !important;
-}
-
+/* Today Highlight Box */
 .fc .fc-day-today {
-    background: rgba(46, 125, 50, 0.05) !important;
+    background: rgba(46, 125, 50, 0.1) !important;
+    border-radius: 8px;
+    border: 2px solid #2e7d32 !important;
 }

@@ -3,7 +3,6 @@ import {
     getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// 1. Firebase Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCbnDtx47cXLFYmHtN_rG1McLWItIS_Vrk",
   authDomain: "cambrils-calendar.firebaseapp.com",
@@ -21,15 +20,14 @@ const bookingsRef = collection(db, "bookings");
 const FAMILY_PASSCODE = "Becky"; 
 
 const FAMILY_COLORS = {
-    "Mum & Dad": "#FFD93D", // Sun-yellow
-    "Cian": "#6BCBFF",      // Sky-blue
-    "Mark": "#4D96FF",      // Royal-blue
-    "Erica": "#FF6B6B",     // Soft coral-red
+    "Mum & Dad": "#FFD93D", 
+    "Cian": "#6BCBFF",      
+    "Mark": "#4D96FF",      
+    "Erica": "#FF6B6B",     
 };
 
 document.addEventListener('DOMContentLoaded', function() {
     
-    // 2. GATEKEEPER
     let authenticated = localStorage.getItem("house_auth");
     if (authenticated !== "true") {
         const entry = prompt("Please enter the Family Passcode:");
@@ -50,22 +48,19 @@ document.addEventListener('DOMContentLoaded', function() {
     let pendingSelection = null;
 
     const calendar = new FullCalendar.Calendar(calendarEl, {
-        // --- SEAMLESS SCROLL SETTINGS ---
         initialView: 'multiMonthYear',
         multiMonthMaxColumns: 1, 
         showNonCurrentDates: false,
-        // --------------------------------
+        
+        // --- THE FIXES ---
+        height: 'auto',         // Fixes the squished layout 
+        headerToolbar: false,   // Removes the giant sticky "2026" and greyed out button
+        // -----------------
 
         selectable: true,
         editable: false, 
         selectLongPressDelay: 200, 
         longPressDelay: 200,
-
-        headerToolbar: {
-            left: '',
-            center: 'title',
-            right: 'today'
-        },
         
         select: function(info) {
             const existingEvents = calendar.getEvents();
@@ -103,6 +98,18 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     calendar.render();
+
+    // CUSTOM TODAY BUTTON LOGIC
+    const todayBtn = document.getElementById('customTodayBtn');
+    if (todayBtn) {
+        todayBtn.addEventListener('click', () => {
+            const todayElement = document.querySelector('.fc-day-today');
+            if (todayElement) {
+                // Smoothly scroll the today square into the center of the screen
+                todayElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+    }
 
     confirmBtn.onclick = async () => {
         if (!pendingSelection) return;
