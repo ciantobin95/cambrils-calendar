@@ -3,6 +3,7 @@ import {
     getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+// 1. Firebase Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCbnDtx47cXLFYmHtN_rG1McLWItIS_Vrk",
   authDomain: "cambrils-calendar.firebaseapp.com",
@@ -17,28 +18,47 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const bookingsRef = collection(db, "bookings");
 
+// 2. The Secret Password
+const FAMILY_PASSCODE = "Becky"; 
+
 document.addEventListener('DOMContentLoaded', function() {
+    
+    // --- GATEKEEPER START ---
+    // This checks if the phone "remembers" the password
+    let authenticated = localStorage.getItem("house_auth");
+
+    if (authenticated !== "true") {
+        const entry = prompt("Please enter the Family Passcode:");
+        
+        if (entry === FAMILY_PASSCODE) {
+            localStorage.setItem("house_auth", "true");
+        } else {
+            // If they fail, we replace the screen with a message and STOP
+            document.body.innerHTML = `
+                <div style="text-align:center; margin-top:100px; font-family:sans-serif;">
+                    <h2>Access Denied</h2>
+                    <p>Incorrect passcode. Refresh to try again.</p>
+                </div>`;
+            return; // This is the 'kill switch' that prevents crashes
+        }
+    }
+    // --- GATEKEEPER END ---
+
     const calendarEl = document.getElementById('calendar');
 
-    // 1. Initialize the calendar with NO events initially
     const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         selectable: true,
         editable: true,
-        
-        // --- MOBILE TOUCH FIXES ---
         selectLongPressDelay: 200, 
         longPressDelay: 200,
-        // --------------------------
-
         headerToolbar: {
             left: 'prev,next',
             center: 'title',
             right: 'today'
         },
-        // ... rest of your code stays the same
         
-        // 2. CREATE: Save new booking
+        // 3. CREATE: Save new booking
         select: async function(info) {
             const name = prompt("Who is booking the house?");
             if (name && name.trim() !== "") {
@@ -55,7 +75,7 @@ document.addEventListener('DOMContentLoaded', function() {
             calendar.unselect();
         },
 
-        // 3. EDIT/DELETE
+        // 4. EDIT/DELETE
         eventClick: async function(info) {
             const action = prompt(`Selected: ${info.event.title}\nType 'delete' to remove or enter a new name to edit:`);
             if (action === null) return; 
@@ -68,7 +88,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         },
 
-        // 4. DRAG & DROP
+        // 5. DRAG & DROP
         eventDrop: async function(info) {
             const eventRef = doc(db, "bookings", info.event.id);
             await updateDoc(eventRef, {
@@ -80,11 +100,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     calendar.render();
 
-    // 5. THE REAL-TIME SYNC ENGINE
-    // This sits outside the calendar config and "pushes" updates to the UI
+    // 6. REAL-TIME SYNC
     onSnapshot(bookingsRef, (snapshot) => {
         const eventArray = [];
-        
         snapshot.forEach((doc) => {
             const data = doc.data();
             eventArray.push({
@@ -97,10 +115,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 borderColor: '#1b5e20'
             });
         });
-
-        // This removes all old events and replaces them with the fresh ones from Firebase
         calendar.removeAllEvents();
         calendar.addEventSource(eventArray);
-        console.log("Calendar UI updated with", eventArray.length, "bookings.");
     });
 });
