@@ -115,7 +115,7 @@ async function showInstallPrompt() {
         localStorage.setItem("pwa_prompted", "true");
     } else if (deferredPrompt) {
         // Android / Chrome allows us to trigger the native install
-        const wantInstall = await Modal.show('confirm', 'Install App 📱', 'Would you like to add this calendar to your Home Screen for quick access?', 'Yes, Install');
+        const wantInstall = await Modal.show('confirm', 'Install App 📱', 'Would you like to install this calendar app?\n\n(Note: If it does not appear on your Home Screen automatically, check your App Drawer!', 'Yes, Install');
         if (wantInstall) {
             deferredPrompt.prompt();
             await deferredPrompt.userChoice;
