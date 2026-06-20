@@ -1,7 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { 
-    getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot 
+    getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 // --- 1. REGISTER SERVICE WORKER ---
 if ('serviceWorker' in navigator) {
@@ -24,6 +25,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 const bookingsRef = collection(db, "bookings");
 
 const FAMILY_PASSCODE = "Becky"; 
@@ -141,6 +143,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     } else {
         setTimeout(showInstallPrompt, 1500);
+    }
+
+    try {
+        await signInAnonymously(auth);
+    } catch (e) {
+        console.error("Auth failed", e);
+        await Modal.show('confirm', 'Connection Problem',
+            'Could not connect to the booking service. Please check your internet and reload.', 'OK');
+        return;
     }
 
     const calendarEl = document.getElementById('calendar');
