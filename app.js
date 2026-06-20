@@ -13,27 +13,6 @@ if ('serviceWorker' in navigator) {
     });
 }
 
-async function updateOnlineStatus() {
-    const banner = document.getElementById('offlineBanner');
-    if (!banner) return;
-
-    let isConnected = false;
-
-    try {
-        const response = await fetch(`./manifest.json?online-check=${Date.now()}`, { cache: 'no-store' });
-        isConnected = response.ok;
-    } catch (e) {
-        isConnected = false;
-    }
-
-    banner.hidden = isConnected;
-    banner.classList.toggle('visible', !isConnected);
-}
-
-window.addEventListener('online', updateOnlineStatus);
-window.addEventListener('offline', updateOnlineStatus);
-document.addEventListener('DOMContentLoaded', updateOnlineStatus);
-
 const firebaseConfig = {
   apiKey: "AIzaSyCbnDtx47cXLFYmHtN_rG1McLWItIS_Vrk",
   authDomain: "cambrils-calendar.firebaseapp.com",
