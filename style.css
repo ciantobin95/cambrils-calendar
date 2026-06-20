@@ -31,6 +31,10 @@ body {
     transition: transform 0.3s ease;
 }
 
+.offline-banner[hidden] {
+    display: none;
+}
+
 .offline-banner.visible {
     transform: translateY(0);
 }
