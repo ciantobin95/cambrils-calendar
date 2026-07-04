@@ -1,0 +1,58 @@
+# Deploys the site to GitHub Pages on every push to main.
+#
+# Before publishing, it stamps the current commit hash into the
+# __APP_VERSION__ placeholders (index.html / weather.html) and generates
+# version.json. The in-app update check compares the two: when they differ,
+# the app knows a new deploy is live and refreshes itself.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two deploys at once; a newer push supersedes an in-flight one.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Stamp app version
+        run: |
+          VERSION="${GITHUB_SHA::7}"
+          sed -i "s/__APP_VERSION__/${VERSION}/g" index.html weather.html
+          printf '{"version":"%s"}\n' "${VERSION}" > version.json
+          echo "Stamped version ${VERSION}"
+
+      # Pages was originally set to deploy straight from the main branch.
+      # This switches it to deploy from this workflow instead, so the
+      # version-stamped copy is what gets published. Safe to re-run.
+      - name: Ensure Pages deploys from GitHub Actions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api -X PUT "repos/${GITHUB_REPOSITORY}/pages" -F build_type=workflow \
+            || echo "::warning::Could not switch Pages to workflow deploys automatically. Set Settings -> Pages -> Source to 'GitHub Actions' manually."
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
