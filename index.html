@@ -41,9 +41,14 @@
         body.app-splash-active header{opacity:0;}
     </style>
 
-    <script src="./fullcalendar.min.js"></script>
+    <!--
+        ?v= query strings are stamped with the commit hash at deploy time so
+        every release forces phones to fetch fresh copies instead of reusing
+        HTTP-cached ones. Locally the placeholder is harmless.
+    -->
+    <script src="./fullcalendar.min.js?v=__APP_VERSION__"></script>
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=__APP_VERSION__">
 </head>
 <body class="app-splash-active">
 
@@ -151,7 +156,7 @@
         <div id="legend" class="legend"></div>
     </div>
 
-    <script type="module" src="app.js"></script>
+    <script type="module" src="app.js?v=__APP_VERSION__"></script>
 
 </body>
 </html>

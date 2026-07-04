@@ -9,12 +9,14 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 
-// --- Update available: surface a banner when a new deploy is live ---
-// The banner needs to appear reliably whenever a change is merged into main,
-// so the check is wired into every reasonable signal that a fresh deploy
-// might be available: initial module load, returning to the tab, regaining
-// focus, network coming back online, page restored from bfcache, and a
-// periodic background poll for long-open sessions.
+// --- Keep the installed app up to date with the latest deploy ---
+// On launch, a version mismatch triggers one automatic reload so the user
+// simply opens the app and gets the newest version — no button press. For
+// deploys that land while the app is already open, a banner is shown instead
+// so people aren't yanked out of whatever they're doing. Checks are wired
+// into every reasonable signal that a fresh deploy might be available:
+// initial module load, returning to the tab, regaining focus, network coming
+// back online, page restored from bfcache, and a periodic background poll.
 const LOADED_VERSION = document
     .querySelector('meta[name="app-version"]')?.content;
 let updateBannerShown = false;
@@ -26,8 +28,17 @@ const UPDATE_CHECK_DEBOUNCE_MS = 10_000;
 // While the app is open and visible, poll periodically so a deploy that
 // lands mid-session doesn't go unnoticed until the user app-switches.
 const UPDATE_CHECK_POLL_MS = 5 * 60 * 1000;
+// Remembers which version we already auto-reloaded for. If the reload comes
+// back still running the old version (e.g. the new HTML hasn't propagated to
+// the CDN yet), we fall back to the banner instead of reloading forever.
+const AUTO_RELOAD_KEY = 'house_update_auto_reloaded_for';
 
-async function checkForUpdate() {
+function reloadToLatest() {
+    // Cache-bust the HTML; new HTML then references the latest assets.
+    location.replace(location.pathname + '?u=' + Date.now());
+}
+
+async function checkForUpdate({ allowAutoReload = false } = {}) {
     // Skip during local dev: the workflow replaces this placeholder at deploy time.
     if (!LOADED_VERSION || LOADED_VERSION === '__APP_VERSION__') return;
     if (updateBannerShown) return;
@@ -38,7 +49,18 @@ async function checkForUpdate() {
         const res = await fetch('version.json?_=' + now, { cache: 'no-store' });
         if (!res.ok) return;
         const { version } = await res.json();
-        if (version && version !== LOADED_VERSION) showUpdateBanner();
+        if (!version) return;
+        if (version === LOADED_VERSION) {
+            // Up to date - clear the guard so the next deploy can auto-reload.
+            localStorage.removeItem(AUTO_RELOAD_KEY);
+            return;
+        }
+        if (allowAutoReload && localStorage.getItem(AUTO_RELOAD_KEY) !== version) {
+            localStorage.setItem(AUTO_RELOAD_KEY, version);
+            reloadToLatest();
+            return;
+        }
+        showUpdateBanner();
     } catch { /* offline or transient error - try again next time */ }
 }
 
@@ -51,17 +73,15 @@ function showUpdateBanner() {
 
 const updateBtn = document.getElementById('updateBannerBtn');
 if (updateBtn) {
-    updateBtn.addEventListener('click', () => {
-        // Cache-bust the HTML; new HTML then references the latest assets.
-        location.replace(location.pathname + '?u=' + Date.now());
-    });
+    updateBtn.addEventListener('click', reloadToLatest);
 }
 
 // Fire as early as possible — module scripts are deferred, so the DOM is
 // already parsed and the banner element exists. This means the network
 // request for version.json kicks off in parallel with the splash zoom and
-// auth, instead of waiting for the calendar to finish initialising.
-checkForUpdate();
+// auth, instead of waiting for the calendar to finish initialising. This is
+// the launch check, so it's the only one allowed to reload automatically.
+checkForUpdate({ allowAutoReload: true });
 
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') checkForUpdate();
