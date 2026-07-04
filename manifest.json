@@ -1,20 +1,24 @@
 {
-  "name": "Cambrils Calendar",
-  "short_name": "Cambrils Calendar",
-  "start_url": "index.html",
+  "name": "Cambrils House Calendar",
+  "short_name": "Cambrils",
+  "description": "Family booking calendar for the Cambrils holiday house.",
+  "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#4CAF50",
+  "background_color": "#6EB4D6",
+  "theme_color": "#0A5C8A",
   "icons": [
     {
       "src": "icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

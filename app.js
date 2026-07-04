@@ -1,283 +1,177 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { 
-    getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot 
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { auth, FAMILY_PASSCODE } from './data.js';
+import Modal from './modal.js';
+import { initCalendar } from './calendar-init.js';
+import { signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-// --- 1. REGISTER SERVICE WORKER ---
+// Registers the cleanup service worker so any device still running the old
+// offline worker receives the self-removing replacement automatically.
 if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-            .then(reg => console.log('Service Worker Registered!', reg))
-            .catch(err => console.error('Service Worker Registration Failed', err));
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// --- Update available: surface a banner when a new deploy is live ---
+// The banner needs to appear reliably whenever a change is merged into main,
+// so the check is wired into every reasonable signal that a fresh deploy
+// might be available: initial module load, returning to the tab, regaining
+// focus, network coming back online, page restored from bfcache, and a
+// periodic background poll for long-open sessions.
+const LOADED_VERSION = document
+    .querySelector('meta[name="app-version"]')?.content;
+let updateBannerShown = false;
+let lastUpdateCheck = 0;
+// Short debounce so legitimate event-driven re-checks (e.g. quickly
+// backgrounding and refocusing the app) aren't swallowed, while still
+// preventing rapid-fire bursts if multiple events fire at once.
+const UPDATE_CHECK_DEBOUNCE_MS = 10_000;
+// While the app is open and visible, poll periodically so a deploy that
+// lands mid-session doesn't go unnoticed until the user app-switches.
+const UPDATE_CHECK_POLL_MS = 5 * 60 * 1000;
+
+async function checkForUpdate() {
+    // Skip during local dev: the workflow replaces this placeholder at deploy time.
+    if (!LOADED_VERSION || LOADED_VERSION === '__APP_VERSION__') return;
+    if (updateBannerShown) return;
+    const now = Date.now();
+    if (now - lastUpdateCheck < UPDATE_CHECK_DEBOUNCE_MS) return;
+    lastUpdateCheck = now;
+    try {
+        const res = await fetch('version.json?_=' + now, { cache: 'no-store' });
+        if (!res.ok) return;
+        const { version } = await res.json();
+        if (version && version !== LOADED_VERSION) showUpdateBanner();
+    } catch { /* offline or transient error - try again next time */ }
+}
+
+function showUpdateBanner() {
+    const banner = document.getElementById('updateBanner');
+    if (!banner) return;
+    banner.hidden = false;
+    updateBannerShown = true;
+}
+
+const updateBtn = document.getElementById('updateBannerBtn');
+if (updateBtn) {
+    updateBtn.addEventListener('click', () => {
+        // Cache-bust the HTML; new HTML then references the latest assets.
+        location.replace(location.pathname + '?u=' + Date.now());
     });
 }
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCbnDtx47cXLFYmHtN_rG1McLWItIS_Vrk",
-  authDomain: "cambrils-calendar.firebaseapp.com",
-  projectId: "cambrils-calendar",
-  storageBucket: "cambrils-calendar.firebasestorage.app",
-  messagingSenderId: "20334837629",
-  appId: "1:20334837629:web:08992865bfd9042d98d614",
-  measurementId: "G-QLMW5KEDPK"
-};
+// Fire as early as possible — module scripts are deferred, so the DOM is
+// already parsed and the banner element exists. This means the network
+// request for version.json kicks off in parallel with the splash zoom and
+// auth, instead of waiting for the calendar to finish initialising.
+checkForUpdate();
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
-const bookingsRef = collection(db, "bookings");
-
-const FAMILY_PASSCODE = "Becky"; 
-
-const FAMILY_COLORS = {
-    "Mum & Dad": "#FFD93D", 
-    "Cian": "#6BCBFF",      
-    "Mark": "#4D96FF",      
-    "Erica": "#FF6B6B",     
-};
-
-// --- MODAL SYSTEM ---
-const Modal = {
-    overlay: document.getElementById('systemModal'),
-    title: document.getElementById('sysModalTitle'),
-    message: document.getElementById('sysModalMessage'),
-    input: document.getElementById('sysInput'),
-    confirmBtn: document.getElementById('sysConfirmBtn'),
-    cancelBtn: document.getElementById('sysCancelBtn'),
-
-    show(type, titleText, messageText, confirmText = "OK", isDanger = false) {
-        return new Promise((resolve) => {
-            this.title.innerText = titleText;
-            this.message.innerText = messageText;
-            this.confirmBtn.innerText = confirmText;
-            
-            if (type === 'password') {
-                this.input.style.display = 'block';
-                this.input.value = '';
-                this.input.focus();
-            } else {
-                this.input.style.display = 'none';
-            }
-
-            if (isDanger) {
-                this.confirmBtn.classList.add('btn-danger');
-                this.confirmBtn.classList.remove('btn-confirm');
-            } else {
-                this.confirmBtn.classList.add('btn-confirm');
-                this.confirmBtn.classList.remove('btn-danger');
-            }
-
-            const handleConfirm = () => {
-                cleanup();
-                if (type === 'password') resolve(this.input.value);
-                else resolve(true);
-            };
-
-            const handleCancel = () => {
-                cleanup();
-                resolve(false);
-            };
-
-            const cleanup = () => {
-                this.overlay.style.display = 'none';
-                this.confirmBtn.onclick = null;
-                this.cancelBtn.onclick = null;
-            };
-
-            this.confirmBtn.onclick = handleConfirm;
-            this.cancelBtn.onclick = handleCancel;
-            this.overlay.style.display = 'flex';
-        });
-    }
-};
-
-// --- 2. PWA INSTALL LOGIC ---
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    if (localStorage.getItem("house_auth") === "true" && localStorage.getItem("pwa_prompted") !== "true") {
-        showInstallPrompt();
-    }
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkForUpdate();
 });
+// Some Android browsers fire focus instead of (or alongside) visibilitychange
+// when the user returns to the PWA from the recents list. pageshow also
+// covers the back/forward cache restoration path. online catches users who
+// were offline when the deploy landed.
+window.addEventListener('focus', () => checkForUpdate());
+window.addEventListener('pageshow', () => checkForUpdate());
+window.addEventListener('online', () => checkForUpdate());
 
-async function showInstallPrompt() {
-    if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true) return;
-    if (localStorage.getItem("pwa_prompted") === "true") return;
+setInterval(() => {
+    if (document.visibilityState === 'visible') checkForUpdate();
+}, UPDATE_CHECK_POLL_MS);
 
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-
-    if (isIOS) {
-        await Modal.show('confirm', 'Install App 📱', 'To add this calendar to your home screen:\n\n1. Tap the Share icon at the bottom of Safari.\n2. Tap "Add to Home Screen".', 'Got it!');
-        localStorage.setItem("pwa_prompted", "true");
-    } else if (deferredPrompt) {
-        const wantInstall = await Modal.show('confirm', 'Install App 📱', 'Would you like to install this calendar app?\n\n(Note: If it does not appear on your Home Screen automatically, check your App Drawer!)', 'Yes, Install');
-        if (wantInstall) {
-            deferredPrompt.prompt();
-            await deferredPrompt.userChoice;
-            deferredPrompt = null;
-        }
-        localStorage.setItem("pwa_prompted", "true");
+// --- Animated launch splash ---
+// Runs a short zoom over the beach photo, then dissolves to reveal the
+// calendar. Kept brief because the app is opened often; the moment should
+// greet, not delay. Resolves once the overlay is fully gone so the auth
+// flow below can wait for it before popping the password / loading modal.
+function runLaunchSplash() {
+    const splash = document.getElementById('appSplash');
+    if (!splash) {
+        document.body.classList.remove('app-splash-active');
+        return Promise.resolve();
     }
+
+    return new Promise(resolve => {
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const ZOOM_MS = reduced ? 0 : 1200;
+        const EXIT_MS = reduced ? 200 : 500;
+        // Cap waiting for the image so a slow network can't strand the splash.
+        const IMAGE_WAIT_MS = 1500;
+
+        const finish = () => {
+            if (splash.isConnected) splash.remove();
+            document.body.classList.remove('app-splash-active', 'app-splash-leaving');
+            resolve();
+        };
+
+        const beginExit = () => {
+            document.body.classList.add('app-splash-leaving');
+            splash.classList.add('is-leaving');
+            // animationend can be missed if the element is removed early or in
+            // edge browsers; the timeout is a belt-and-braces backstop.
+            let done = false;
+            const onEnd = () => {
+                if (done) return;
+                done = true;
+                splash.removeEventListener('animationend', onEnd);
+                finish();
+            };
+            splash.addEventListener('animationend', onEnd);
+            setTimeout(onEnd, EXIT_MS + 100);
+        };
+
+        const startZoom = () => {
+            splash.classList.add('is-zooming');
+            setTimeout(beginExit, ZOOM_MS);
+        };
+
+        // Wait for the splash photo to fully decode before kicking off the zoom,
+        // so the animation always starts on a painted frame. If the image takes
+        // too long, start anyway — the OS splash is still visible underneath.
+        // The ?v= query matches the cache-busted URL in the inline <style> in
+        // index.html so this preload hits the same browser cache entry instead
+        // of triggering a second network fetch.
+        const img = new Image();
+        let started = false;
+        const start = () => { if (!started) { started = true; startZoom(); } };
+        img.addEventListener('load', start);
+        img.addEventListener('error', start);
+        const versionedSplash = (LOADED_VERSION && LOADED_VERSION !== '__APP_VERSION__')
+            ? `splash-cambrils.jpg?v=${LOADED_VERSION}`
+            : 'splash-cambrils.jpg';
+        img.src = versionedSplash;
+        setTimeout(start, IMAGE_WAIT_MS);
+    });
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
-    
-    // GATEKEEPER
-    let authenticated = localStorage.getItem("house_auth");
-    
+    await runLaunchSplash();
+
+    const authenticated = localStorage.getItem("house_auth");
+
     if (authenticated !== "true") {
         const entry = await Modal.show('password', 'Welcome Home', 'Please enter the Family Passcode:', 'Unlock');
-        
-        if (entry === FAMILY_PASSCODE) { 
-            localStorage.setItem("house_auth", "true"); 
-            setTimeout(showInstallPrompt, 1500); 
-        } else { 
-            document.body.innerHTML = `
-                <div style="display:flex; justify-content:center; align-items:center; height:100vh; background:#f0f4f8; flex-direction:column;">
-                    <h2 style="font-family:'Inter'; color:#c62828;">Access Denied</h2>
-                    <button onclick="location.reload()" style="padding:10px 20px; margin-top:20px; border-radius:10px; border:none; background:#ccc; font-size:16px;">Try Again</button>
-                </div>`; 
-            return; 
+
+        if (entry === FAMILY_PASSCODE) {
+            localStorage.setItem("house_auth", "true");
+        } else {
+            await Modal.show('alert', 'That passcode wasn’t right',
+                'Please try again with the family passcode.', 'Try again');
+            location.reload();
+            return;
         }
-    } else {
-        setTimeout(showInstallPrompt, 1500);
     }
 
+    const hideLoading = Modal.showLoading('Connecting…', 'Loading the family calendar.');
     try {
         await signInAnonymously(auth);
     } catch (e) {
         console.error("Auth failed", e);
-        await Modal.show('confirm', 'Connection Problem',
-            'Could not connect to the booking service. Please check your internet and reload.', 'OK');
+        hideLoading();
+        await Modal.show('alert', 'No connection',
+            'We could not connect to the booking service. Please check your internet and reload the page.', 'OK');
         return;
     }
 
-    const calendarEl = document.getElementById('calendar');
-    const nameModal = document.getElementById('nameModal'); 
-    const familySelect = document.getElementById('familySelect');
-    const confirmBtn = document.getElementById('confirmBtn');
-    const cancelBtn = document.getElementById('cancelBtn');
-
-    let pendingSelection = null;
-
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'multiMonthYear',
-        multiMonthMaxColumns: 1, 
-        showNonCurrentDates: false,
-        height: 'auto',         
-        headerToolbar: false,   
-
-        // --- THE BUG FIX ---
-        dayMaxEvents: false, // Prevents "+1 more" and forces the UI to render the colored bar
-        // -------------------
-
-        selectable: true,
-        editable: false, 
-        selectLongPressDelay: 200, 
-        longPressDelay: 200,
-        
-        select: async function(info) {
-            const existingEvents = calendar.getEvents();
-            let overlapFound = false;
-            let overlappingName = "";
-            existingEvents.forEach(event => {
-                if (info.start < event.end && info.end > event.start) {
-                    overlapFound = true;
-                    overlappingName = event.title;
-                }
-            });
-
-            if (overlapFound) {
-                const proceed = await Modal.show(
-                    'confirm', 
-                    'Double Booking!', 
-                    `This overlaps with ${overlappingName}. Do you want to proceed anyway?`, 
-                    'Book Anyway', 
-                    true
-                );
-                
-                if (!proceed) {
-                    calendar.unselect();
-                    return;
-                }
-            }
-
-            pendingSelection = info;
-            nameModal.style.display = 'flex';
-        },
-
-        eventClick: async function(info) {
-            const confirmDelete = await Modal.show(
-                'confirm', 
-                'Delete Booking?', 
-                `Are you sure you want to delete the booking for "${info.event.title}"?`, 
-                'Yes, Delete', 
-                true
-            );
-
-            if (confirmDelete) {
-                const eventRef = doc(db, "bookings", info.event.id);
-                try {
-                    await deleteDoc(eventRef);
-                } catch (e) {
-                    console.error("Error deleting:", e);
-                }
-            }
-        }
-    });
-
-    calendar.render();
-
-    const todayBtn = document.getElementById('customTodayBtn');
-    if (todayBtn) {
-        todayBtn.addEventListener('click', () => {
-            const todayElement = document.querySelector('.fc-day-today');
-            if (todayElement) {
-                todayElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        });
-    }
-
-    confirmBtn.onclick = async () => {
-        if (!pendingSelection) return;
-        const selectedName = familySelect.value;
-        const color = FAMILY_COLORS[selectedName] || "#2e7d32";
-        nameModal.style.display = 'none';
-        try {
-            await addDoc(bookingsRef, {
-                title: selectedName,
-                start: pendingSelection.startStr,
-                end: pendingSelection.endStr,
-                color: color
-            });
-        } catch (e) { console.error(e); }
-        pendingSelection = null;
-        calendar.unselect();
-    };
-
-    cancelBtn.onclick = () => {
-        nameModal.style.display = 'none';
-        pendingSelection = null;
-        calendar.unselect();
-    };
-
-    onSnapshot(bookingsRef, (snapshot) => {
-        const eventArray = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                title: data.title,
-                start: data.start,
-                end: data.end,
-                allDay: true,
-                backgroundColor: data.color || '#2e7d32',
-                borderColor: 'white',
-                textColor: 'white'
-            };
-        });
-        calendar.removeAllEvents();
-        calendar.addEventSource(eventArray);
-    });
+    hideLoading();
+    initCalendar();
 });
